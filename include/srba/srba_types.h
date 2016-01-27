@@ -29,7 +29,6 @@ namespace srba
 	#define VERBOSE_LEVEL_COLOR(_LEVEL,_TEXT_COLOR) if (m_verbose_level>=_LEVEL) { mrpt::system::setConsoleColor(_TEXT_COLOR); std::cout
 	#define VERBOSE_LEVEL_COLOR_POST() mrpt::system::setConsoleColor(mrpt::system::CONCOL_NORMAL); }
 
-
 	#define SRBA_INVALID_KEYFRAMEID  static_cast<TKeyFrameID>(-1)
 	#define SRBA_INVALID_INDEX       static_cast<size_t>(-1)
 
@@ -141,8 +140,10 @@ namespace srba
 	{
 		typedef typename mrpt::math::CArrayDouble<OBS_TRAITS::OBS_DIMS>  array_obs_t;  //!< A fixed-length array of the size of one residual (=the size of one observation).
 		typedef typename mrpt::math::CArrayDouble<OBS_TRAITS::OBS_DIMS>  residual_t;   //!< A fixed-length array of the size of one residual (=the size of one observation).
+		typedef typename mrpt::math::CArrayDouble<OBS_TRAITS::OBS_DIMS/2>  weight_t;   //!< A fixed-length array of 2x the size of one residual (=0.5x the size of one observation).
 
 		typedef typename mrpt::aligned_containers<residual_t>::vector_t  vector_residuals_t;
+		typedef typename mrpt::aligned_containers<weight_t>::vector_t    vector_weights_t;
 
 		/** Elemental observation data */
 		struct observation_t

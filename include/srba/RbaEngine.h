@@ -112,7 +112,9 @@ namespace srba
 		typedef typename landmark_traits_t::array_landmark_t       array_landmark_t;
 		typedef typename observation_traits_t::array_obs_t         array_obs_t;
 		typedef typename observation_traits_t::residual_t          residual_t;
+		typedef typename observation_traits_t::weight_t            weight_t;
 		typedef typename observation_traits_t::vector_residuals_t  vector_residuals_t;
+		typedef typename observation_traits_t::vector_weights_t    vector_weights_t;
 
 		typedef typename jacobian_traits<kf2kf_pose_t,landmark_t,obs_t>::TSparseBlocksJacobians_dh_dAp TSparseBlocksJacobians_dh_dAp;
 		typedef typename jacobian_traits<kf2kf_pose_t,landmark_t,obs_t>::TSparseBlocksJacobians_dh_df TSparseBlocksJacobians_dh_df;
@@ -782,6 +784,15 @@ namespace srba
 			Eigen::VectorXd & minus_grad,
 			const std::vector<typename TSparseBlocksJacobians_dh_dAp::col_t*> & sparse_jacobs_Ap,
 			const std::vector<typename TSparseBlocksJacobians_dh_df::col_t*> & sparse_jacobs_f,
+			const vector_residuals_t  & residuals,
+			const std::map<size_t,size_t> &obs_global_idx2residual_idx
+			) const;
+
+		void compute_minus_gradient(
+			Eigen::VectorXd & minus_grad,
+			const std::vector<typename TSparseBlocksJacobians_dh_dAp::col_t*> & sparse_jacobs_Ap,
+			const std::vector<typename TSparseBlocksJacobians_dh_df::col_t*> & sparse_jacobs_f,
+			const vector_weights_t & weights,
 			const vector_residuals_t  & residuals,
 			const std::map<size_t,size_t> &obs_global_idx2residual_idx
 			) const;
