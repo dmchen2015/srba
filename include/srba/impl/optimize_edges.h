@@ -62,7 +62,6 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 	const size_t LM_DIMS   = landmark_t::LM_DIMS;
 	const size_t OBS_DIMS  = obs_t::OBS_DIMS;
 
-
 	// Filter out those unknowns which for sure do not have any observation,
 	//  which can be checked by looking for empty columns in the sparse Jacobian.
 	// -------------------------------------------------------------------------------
@@ -393,12 +392,26 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 	//  residuals = "h(x)-z" (a vector of 2-vectors).
 	// ---------------------------------------------------------------------------------
 	vector_residuals_t  residuals(nObs);
-
 	DETAILED_PROFILING_ENTER("opt.reprojection_residuals")
-	double total_proj_error = reprojection_residuals(
-		residuals, // Out
-		involved_obs // In
-		);
+    double total_proj_error, stdv;
+    vector_weights_t weights;
+    if ( parameters.srba.use_gamma_kernel )
+    {
+        total_proj_error = reprojection_residuals(
+            residuals, // Out
+            involved_obs, // In
+            weights, // Out
+            stdv     // Out
+            );
+        //parameters.options_noise.parameters_t.stdv = stdv;
+    }
+    else
+    {
+        total_proj_error = reprojection_residuals(
+            residuals, // Out
+            involved_obs // In
+            );
+    }
 	DETAILED_PROFILING_LEAVE("opt.reprojection_residuals")
 
 	double RMSE = std::sqrt(total_proj_error/nObs);
@@ -411,7 +424,6 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 	out_info.num_span_tree_numeric_updates = count_span_tree_num_update;
 	out_info.total_sqr_error_init = total_proj_error;
 
-
 	VERBOSE_LEVEL(1) << "[OPT] LM: Initial RMSE=" <<  RMSE << " #Jcbs=" << count_jacobians << " #k2k_edges=" << nUnknowns_k2k << " #k2f_edges=" << nUnknowns_k2f << " #obs=" << nObs << std::endl;
 
 	if (parameters.srba.feedback_user_iteration)
@@ -422,7 +434,14 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 	Eigen::VectorXd  minus_grad; // The negative of the gradient.
 
 	DETAILED_PROFILING_ENTER("opt.compute_minus_gradient")
-	compute_minus_gradient(/* Out: */ minus_grad, /* In: */ dh_dAp, dh_df, residuals, obs_global_idx2residual_idx);
+    if ( parameters.srba.use_gamma_kernel )
+    {
+        compute_minus_gradient(/* Out: */ minus_grad, /* In: */ dh_dAp, dh_df, residuals, weights, stdv, obs_global_idx2residual_idx);
+    }
+    else
+    {
+        compute_minus_gradient(/* Out: */ minus_grad, /* In: */ dh_dAp, dh_df, residuals, obs_global_idx2residual_idx);
+    }
 	DETAILED_PROFILING_LEAVE("opt.compute_minus_gradient")
 
 
@@ -527,7 +546,6 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 			}
 			DETAILED_PROFILING_LEAVE("opt.add_se3_deltas_to_frames")
 
-
 			// Add R^3 deltas to the k2f edges:
 			// ------------------------------------
 			DETAILED_PROFILING_ENTER("opt.add_deltas_to_feats")
@@ -542,8 +560,6 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 
 			// Update the Spanning tree, making a back-up copy:
 			// ------------------------------------------------------
-
-
 			DETAILED_PROFILING_ENTER("opt.make_backup_copy_spntree_num")
 			// DON'T: old_span_tree = rba_state.spanning_tree.num;  // This works but runs in O(n) with the size of the map!!
 			// Instead: copy just the required entries:
