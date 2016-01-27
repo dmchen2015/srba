@@ -38,7 +38,8 @@ RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::TSRBAParameters::TSRBAP
 	max_optimize_depth   ( 4 ),
 	// -------------------------------
 	optimize_new_edges_alone (true),
-	use_robust_kernel    ( false ),
+    use_gamma_kernel     ( false ),
+    use_robust_kernel    ( false ),
 	use_robust_kernel_stage1 ( false ),
 	kernel_param         ( 3. ),
 	max_iters            ( 20 ),
@@ -63,7 +64,8 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::TSRBAParameters::l
 	MRPT_LOAD_CONFIG_VAR(max_optimize_depth,uint64_t,source,section)
 
 	MRPT_LOAD_CONFIG_VAR(optimize_new_edges_alone,bool,source,section)
-	MRPT_LOAD_CONFIG_VAR(use_robust_kernel,bool,source,section)
+    MRPT_LOAD_CONFIG_VAR(use_gamma_kernel,bool,source,section)
+    MRPT_LOAD_CONFIG_VAR(use_robust_kernel,bool,source,section)
 	MRPT_LOAD_CONFIG_VAR(use_robust_kernel_stage1,bool,source,section)
 	MRPT_LOAD_CONFIG_VAR(max_rho,double,source,section)
 	MRPT_LOAD_CONFIG_VAR(max_lambda,double,source,section)
@@ -82,7 +84,8 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::TSRBAParameters::s
 	out.write(section,"max_optimize_depth",max_optimize_depth, /* text width */ 30, 30, "Max. local optimization distance");
 
 	out.write(section,"optimize_new_edges_alone",optimize_new_edges_alone,  /* text width */ 30, 30, "Optimize new edges alone before optimizing the entire local area?");
-	out.write(section,"use_robust_kernel",use_robust_kernel,  /* text width */ 30, 30, "Use pseudo-Huber kernel?");
+    out.write(section,"use_gamma_kernel",use_gamma_kernel,  /* text width */ 30, 30, "Use IRLS Gamma-based kernel?");
+    out.write(section,"use_robust_kernel",use_robust_kernel,  /* text width */ 30, 30, "Use pseudo-Huber kernel?");
 	out.write(section,"use_robust_kernel_stage1",use_robust_kernel_stage1,  /* text width */ 30, 30, "Use pseudo-Huber kernel at stage1?");
 	out.write(section,"kernel_param",kernel_param,  /* text width */ 30, 30, "robust kernel parameter");
 	out.write(section,"max_rho",max_rho,  /* text width */ 30, 30, "Lev-Marq optimization: maximum rho value to stop");

@@ -40,7 +40,7 @@ namespace srba
 	{
 		typedef ecps::local_areas_fixed_size            edge_creation_policy_t;  //!< One of the most important choices: how to construct the relative coordinates graph problem
 		typedef options::sensor_pose_on_robot_none      sensor_pose_on_robot_t;  //!< The sensor pose coincides with the robot pose
-		typedef options::observation_noise_identity     obs_noise_matrix_t;      //!< The sensor noise matrix is the same for all observations and equal to \sigma * I(identity)
+        typedef options::observation_noise_identity     obs_noise_matrix_t;      //!< The sensor noise matrix is the same for all observations and equal to \sigma * I(identity)
 		typedef options::solver_LM_schur_dense_cholesky solver_t;                //!< Solver algorithm (Default: Lev-Marq, with Schur, with dense Cholesky)
 	};
 
@@ -63,14 +63,13 @@ namespace srba
 	  * \tparam OBS_TYPE The type of observations.
 	  * \tparam RBA_OPTIONS A struct with nested typedefs which can be used to tune and customize the behavior of this class.
 	  */
-	template <class KF2KF_POSE_TYPE,class LM_TYPE,class OBS_TYPE,class RBA_OPTIONS = RBA_OPTIONS_DEFAULT>
-	class RbaEngine
+    template <class KF2KF_POSE_TYPE,class LM_TYPE,class OBS_TYPE,class RBA_OPTIONS = RBA_OPTIONS_DEFAULT>
+    class RbaEngine
 	{
 	public:
 		/** @name Templatized typedef's
 		    @{ */
 		typedef RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS> rba_engine_t;
-
 
 		typedef KF2KF_POSE_TYPE  kf2kf_pose_t;
 		typedef LM_TYPE          landmark_t;
@@ -87,7 +86,7 @@ namespace srba
 		typedef jacobian_traits<kf2kf_pose_t,landmark_t,obs_t>                      jacobian_traits_t;
 		typedef hessian_traits<kf2kf_pose_t,landmark_t,obs_t>                       hessian_traits_t;
 		typedef kf2kf_pose_traits<kf2kf_pose_t>                                     kf2kf_pose_traits_t;
-		typedef landmark_traits<landmark_t>                                               landmark_traits_t;
+        typedef landmark_traits<landmark_t>                                         landmark_traits_t;
 		typedef observation_traits<obs_t>                                           observation_traits_t;
 
 		typedef sensor_model<landmark_t,obs_t>   sensor_model_t; //!< The sensor model for the specified combination of LM parameterization + observation type.
@@ -442,7 +441,8 @@ namespace srba
 			// Parameters for optimize_*()
 			// -------------------------------------
 			bool   optimize_new_edges_alone; //!< (Default:true) Before running a whole "local area" optimization, try to optimize new edges one by one to have a better starting point.
-			bool   use_robust_kernel;
+            bool   use_gamma_kernel;
+            bool   use_robust_kernel;
 			bool   use_robust_kernel_stage1;
 			double kernel_param;
 			size_t max_iters;
@@ -464,8 +464,8 @@ namespace srba
 		/** The unique struct which hold all the parameters from the different SRBA modules (sensors, optional features, optimizers,...) */
 		struct TAllParameters
 		{
-			TSRBAParameters                                                srba;        //!< Different parameters for the SRBA methods \sa sensor_params
-			typename obs_t::TObservationParams                             sensor;      //!< Sensor-specific parameters (sensor calibration, etc.) \sa parameters
+            TSRBAParameters                                             srba;        //!< Different parameters for the SRBA methods \sa sensor_params
+            typename obs_t::TObservationParams                          sensor;      //!< Sensor-specific parameters (sensor calibration, etc.) \sa parameters
 			typename RBA_OPTIONS::sensor_pose_on_robot_t::parameters_t  sensor_pose; //!< Parameters related to the relative pose of sensors wrt the robot (if applicable) 
 			typename RBA_OPTIONS::obs_noise_matrix_t::parameters_t      obs_noise;   //!< Parameters related to the sensor noise covariance matrix
 			typename RBA_OPTIONS::edge_creation_policy_t::parameters_t  ecp;         //!< Parameters for the edge creation policy
@@ -817,11 +817,25 @@ namespace srba
 			const std::vector<TObsUsed> & observations // In:
 			) const;
 
+        inline double reprojection_residuals(
+            vector_residuals_t & residuals, // Out:
+            const std::vector<TObsUsed> & observations, // In:
+            vector_weights_t & weights,     // Out
+            double & stdv                     // Out
+            ) const;
+
 		/** pseudo-huber cost function */
 		static inline double huber_kernel(double delta, const double kernel_param)
 		{
-			return std::abs(2*mrpt::utils::square(kernel_param)*(std::sqrt(1+mrpt::utils::square(delta/kernel_param))-1));
+            //return std::abs(2*mrpt::utils::square(kernel_param)*(std::sqrt(1+mrpt::utils::square(delta/kernel_param))-1));
+            return std::log(1+delta);
 		}
+
+        /** Cauchy loss function */
+        static inline double cauchy_loss_kernel(double delta)
+        {
+            return std::log(1+delta);
+        }
 
 		MRPT_MAKE_ALIGNED_OPERATOR_NEW  // Required by Eigen containers
 	}; // end of class "RbaEngine"
