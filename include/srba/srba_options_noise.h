@@ -25,12 +25,18 @@ namespace options
         struct observation_noise_identity
 		{
 
+            static const size_t OBS_DIMS = 2;  //!< The dimension of one observation
+
+            typedef Eigen::Matrix<double,OBS_DIMS,OBS_DIMS>  obs_noise_matrix_t; //!< Type for symetric, positive-definite noise matrices.
+
             /** Observation noise parameters to be filled by the user in srba.parameters.obs_noise */
             struct parameters_t
             {
                 /** One sigma of the Gaussian noise assumed for every component of observations (Default value: 1) */
                 double std_noise_observations;
-                parameters_t() : std_noise_observations( 1. )
+                obs_noise_matrix_t lambda;
+                parameters_t() : std_noise_observations( 1. ),
+                                 lambda( obs_noise_matrix_t::Identity() )
                 { }
             };
 
@@ -150,7 +156,11 @@ namespace options
 			/** Observation noise parameters to be filled by the user in srba.parameters.obs_noise */
 			struct parameters_t
 			{
-				// None: all obs. have different values
+                double std_noise_observations;
+                obs_noise_matrix_t lambda;
+                parameters_t() : std_noise_observations( 1. ),
+                                 lambda( obs_noise_matrix_t::Identity() )
+                { }
 			};
 
 			/** Internal struct for data that must be stored for each observation  */

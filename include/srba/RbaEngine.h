@@ -788,14 +788,15 @@ namespace srba
 			const std::map<size_t,size_t> &obs_global_idx2residual_idx
 			) const;
 
-		void compute_minus_gradient(
-			Eigen::VectorXd & minus_grad,
-			const std::vector<typename TSparseBlocksJacobians_dh_dAp::col_t*> & sparse_jacobs_Ap,
-			const std::vector<typename TSparseBlocksJacobians_dh_df::col_t*> & sparse_jacobs_f,
-			const vector_weights_t & weights,
-			const vector_residuals_t  & residuals,
-			const std::map<size_t,size_t> &obs_global_idx2residual_idx
-			) const;
+        void compute_minus_gradient(
+            Eigen::VectorXd & minus_grad,
+            const std::vector<typename TSparseBlocksJacobians_dh_dAp::col_t*> & sparse_jacobs_Ap,
+            const std::vector<typename TSparseBlocksJacobians_dh_df::col_t*> & sparse_jacobs_f,
+            const vector_residuals_t  & residuals,
+            const vector_weights_t  & weights,
+            const double & stdv,
+            const std::map<size_t,size_t> &obs_global_idx2residual_idx
+            );
 
 		/** Each of the observations used during the optimization */
 		struct TObsUsed
