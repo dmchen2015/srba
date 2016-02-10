@@ -87,7 +87,7 @@ struct TEST_DATASET0
 	struct my_srba_options
 	{
 		typedef options::sensor_pose_on_robot_none sensor_pose_on_robot_t;
-		typedef options::observation_noise_identity   obs_noise_matrix_t;      // The sensor noise matrix is the same for all observations and equal to \sigma * I(identity)
+		typedef options::observation_noise_identity<srba::observations::Cartesian_3D>   obs_noise_matrix_t;      // The sensor noise matrix is the same for all observations and equal to \sigma * I(identity)
 		typedef options::solver_LM_schur_dense_cholesky      solver_t;
 		typedef ecps::local_areas_fixed_size            edge_creation_policy_t;  //!< One of the most important choices: how to construct the relative coordinates graph problem
 	};
@@ -179,7 +179,7 @@ struct TEST_DATASET1
 	struct my_srba_options
 	{
 		typedef options::sensor_pose_on_robot_se3 sensor_pose_on_robot_t;
-		typedef options::observation_noise_identity   obs_noise_matrix_t;      // The sensor noise matrix is the same for all observations and equal to \sigma * I(identity)
+		typedef options::observation_noise_identity<srba::observations::Cartesian_3D>   obs_noise_matrix_t;      // The sensor noise matrix is the same for all observations and equal to \sigma * I(identity)
 		typedef options::solver_LM_schur_dense_cholesky      solver_t;
 		typedef ecps::local_areas_fixed_size            edge_creation_policy_t;  //!< One of the most important choices: how to construct the relative coordinates graph problem
 	};

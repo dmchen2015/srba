@@ -39,7 +39,7 @@ struct problem_options_traits_t<kf2kf_poses::SE3,landmarks::Euclidean3D,observat
 	struct srba_options_t : public srba::RBA_OPTIONS_DEFAULT
 	{
 		typedef options::sensor_pose_on_robot_se3     sensor_pose_on_robot_t;
-		typedef options::observation_noise_identity   obs_noise_matrix_t;      // The sensor noise matrix is the same for all observations and equal to \sigma * I(identity)
+		typedef options::observation_noise_identity<observations::StereoCamera>   obs_noise_matrix_t;      // The sensor noise matrix is the same for all observations and equal to \sigma * I(identity)
 		typedef options::solver_LM_schur_dense_cholesky      solver_t;
 	};
 };

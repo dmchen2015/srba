@@ -41,7 +41,7 @@ struct CDatasetParserTempl<srba::observations::Cartesian_3D> : public CDatasetPa
 		o.obs_data.pt.z = m_OBS(idx,4) + (!m_add_noise ? .0 : mrpt::random::randomGenerator.drawGaussian1D(0, m_noise_std));
 	}
 
-	void loadNoiseParamsInto( srba::options::observation_noise_identity::parameters_t & p )
+	void loadNoiseParamsInto( srba::options::observation_noise_identity<srba::observations::Cartesian_3D>::parameters_t & p )
 	{
 		p.std_noise_observations = m_noise_std;
 	}

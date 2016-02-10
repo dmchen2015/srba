@@ -108,7 +108,7 @@ struct RBA_Run : public RBA_Run_Base
 		InitializerSensorParams<OBS_TYPE>::init(rba,cfg);
 
 		// Init/load sensor noise params:
-		dataset.loadNoiseParamsInto( rba.parameters.obs_noise );
+		//dataset.loadNoiseParamsInto( rba.parameters.obs_noise );
 
 
 		// Init sensor-to-robot relative pose parameters:
