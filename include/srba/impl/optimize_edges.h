@@ -35,7 +35,6 @@ namespace internal
 	// Implemented in lev-marq_solvers.h
 }
 
-
 // ------------------------------------------
 //         optimize_edges
 //          (See header for docs)
@@ -48,7 +47,7 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 	const std::vector<size_t> & in_observation_indices_to_optimize
 	)
 {
-	using namespace std;
+
 	// This method deals with many common tasks to any optimizer: update Jacobians, prepare Hessians, etc. 
 	// The specific solver method details are implemented in "my_solver_t":
 	typedef internal::solver_engine<RBA_OPTIONS::solver_t::USE_SCHUR,RBA_OPTIONS::solver_t::DENSE_CHOLESKY,rba_engine_t> my_solver_t;
@@ -321,7 +320,7 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 		HApf.getSparsityStats( out_info.sparsity_HApf_max_size, out_info.sparsity_HApf_nnz );
 		DETAILED_PROFILING_LEAVE("opt.sparsity_stats")
 	}
-
+	
 	// and then we only have to do a numeric evaluation upon changes:
 	size_t nInvalidJacobs = 0;
 	DETAILED_PROFILING_ENTER("opt.sparse_hessian_update_numeric")
@@ -393,25 +392,25 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 	// ---------------------------------------------------------------------------------
 	vector_residuals_t  residuals(nObs);
 	DETAILED_PROFILING_ENTER("opt.reprojection_residuals")
-    double total_proj_error, stdv;
-    vector_weights_t weights;
-    if ( parameters.srba.use_gamma_kernel )
-    {
-        total_proj_error = reprojection_residuals(
-            residuals, // Out
-            involved_obs, // In
-            weights, // Out
-            stdv     // Out
-            );
-        //parameters.options_noise.parameters_t.stdv = stdv;
-    }
-    else
-    {
-        total_proj_error = reprojection_residuals(
-            residuals, // Out
-            involved_obs // In
-            );
-    }
+	double total_proj_error, stdv;
+	vector_weights_t weights;
+	if ( parameters.srba.use_gamma_kernel && nObs > parameters.srba.min_obs_gamma_kernel )
+	{
+		total_proj_error = reprojection_residuals(
+			residuals, // Out
+			involved_obs, // In
+			weights, // Out
+			stdv     // Out
+			);
+		//while(true);
+	}
+	else
+	{
+		total_proj_error = reprojection_residuals(
+			residuals, // Out
+			involved_obs // In
+			);
+	}
 	DETAILED_PROFILING_LEAVE("opt.reprojection_residuals")
 
 	double RMSE = std::sqrt(total_proj_error/nObs);
@@ -429,19 +428,56 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 	if (parameters.srba.feedback_user_iteration)
 		(*parameters.srba.feedback_user_iteration)(0,total_proj_error,RMSE);
 
+	// We only have to do a numeric evaluation of H upon changes (and include the weights)
+	// -----------------------------------------------------------------------------------
+	nInvalidJacobs = 0;
+	DETAILED_PROFILING_ENTER("opt.sparse_hessian_update_numeric")
+	if ( parameters.srba.use_gamma_kernel && nObs > parameters.srba.min_obs_gamma_kernel )
+	{
+		nInvalidJacobs += sparse_hessian_update_numeric(HAp,weights,stdv,obs_global_idx2residual_idx);
+		nInvalidJacobs += sparse_hessian_update_numeric(Hf,weights,stdv,obs_global_idx2residual_idx);
+		nInvalidJacobs += sparse_hessian_update_numeric(HApf,weights,stdv,obs_global_idx2residual_idx);
+	}
+	else
+	{
+		nInvalidJacobs += sparse_hessian_update_numeric(HAp);
+		nInvalidJacobs += sparse_hessian_update_numeric(Hf);
+		nInvalidJacobs += sparse_hessian_update_numeric(HApf);
+	}
+	DETAILED_PROFILING_LEAVE("opt.sparse_hessian_update_numeric")
+
+	if (nInvalidJacobs) {
+		mrpt::system::setConsoleColor(mrpt::system::CONCOL_RED);
+		VERBOSE_LEVEL(1) << "[OPT] " << nInvalidJacobs << " Jacobian blocks ignored for 'invalid'.\n";
+		mrpt::system::setConsoleColor(mrpt::system::CONCOL_NORMAL);
+	}
+
+	VERBOSE_LEVEL(2) << "[OPT] Individual Jacobs: " << count_jacobians << " #k2k_edges=" << nUnknowns_k2k << " #k2f_edges=" << nUnknowns_k2f << " #obs=" << nObs << std::endl;
+	VERBOSE_LEVEL(2) << "[OPT] k2k_edges to optimize: " << mrpt::system::sprintf_container("% u",run_k2k_edges) << std::endl;
+	VERBOSE_LEVEL(2) << "[OPT] k2f_edges to optimize: " << mrpt::system::sprintf_container("% u",run_feat_ids) << std::endl;
+	// Extra verbose: display initial value of each optimized pose:
+	if (m_verbose_level>=2 && !run_k2k_edges.empty())
+	{
+		std::cout << "[OPT] k2k_edges to optimize, initial value(s):\n";
+		ASSERT_(k2k_edge_unknowns.size()==run_k2k_edges.size())
+		for (size_t i=0;i<run_k2k_edges.size();i++)
+			std::cout << " k2k_edge: " <<k2k_edge_unknowns[i]->from << "=>" << k2k_edge_unknowns[i]->to << ",inv_pose=" << k2k_edge_unknowns[i]->inv_pose << std::endl;
+	}
+
+
 	// Compute the gradient: "grad = J^t * (h(x)-z)"
 	// ---------------------------------------------------------------------------------
 	Eigen::VectorXd  minus_grad; // The negative of the gradient.
 
 	DETAILED_PROFILING_ENTER("opt.compute_minus_gradient")
-    if ( parameters.srba.use_gamma_kernel )
-    {
-        compute_minus_gradient(/* Out: */ minus_grad, /* In: */ dh_dAp, dh_df, residuals, weights, stdv, obs_global_idx2residual_idx);
-    }
-    else
-    {
-        compute_minus_gradient(/* Out: */ minus_grad, /* In: */ dh_dAp, dh_df, residuals, obs_global_idx2residual_idx);
-    }
+	if ( parameters.srba.use_gamma_kernel && nObs > parameters.srba.min_obs_gamma_kernel )
+	{
+		compute_minus_gradient(/* Out: */ minus_grad, /* In: */ dh_dAp, dh_df, residuals, weights, stdv, obs_global_idx2residual_idx);
+	}
+	else
+	{
+		compute_minus_gradient(/* Out: */ minus_grad, /* In: */ dh_dAp, dh_df, residuals, obs_global_idx2residual_idx);
+	}
 	DETAILED_PROFILING_LEAVE("opt.compute_minus_gradient")
 
 
@@ -583,13 +619,27 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 
 			// Compute new reprojection errors:
 			// ----------------------------------
-			vector_residuals_t  new_residuals;
-
+			vector_residuals_t  new_residuals(nObs);
 			DETAILED_PROFILING_ENTER("opt.reprojection_residuals")
-			double new_total_proj_error = reprojection_residuals(
-				new_residuals, // Out
-				involved_obs // In
-				);
+			double new_total_proj_error, new_stdv;
+			vector_weights_t new_weights;
+			if ( parameters.srba.use_gamma_kernel && nObs > parameters.srba.min_obs_gamma_kernel )
+			{
+				new_total_proj_error = reprojection_residuals(
+					new_residuals, // Out
+					involved_obs, // In
+					new_weights, // Out
+					new_stdv     // Out
+					);
+				//parameters.options_noise.parameters_t.stdv = stdv;
+			}
+			else
+			{
+				new_total_proj_error = reprojection_residuals(
+					new_residuals, // Out
+					involved_obs // In
+					);
+			}
 			DETAILED_PROFILING_LEAVE("opt.reprojection_residuals")
 
 			const double new_RMSE = std::sqrt(new_total_proj_error/nObs);
@@ -636,9 +686,18 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 
 					// Recalculate Hessian:
 					DETAILED_PROFILING_ENTER("opt.sparse_hessian_update_numeric")
-					sparse_hessian_update_numeric(HAp);
-					sparse_hessian_update_numeric(Hf);
-					sparse_hessian_update_numeric(HApf);
+					if ( parameters.srba.use_gamma_kernel && nObs > parameters.srba.min_obs_gamma_kernel )
+					{
+						nInvalidJacobs += sparse_hessian_update_numeric(HAp,weights,stdv,obs_global_idx2residual_idx);
+						nInvalidJacobs += sparse_hessian_update_numeric(Hf,weights,stdv,obs_global_idx2residual_idx);
+						nInvalidJacobs += sparse_hessian_update_numeric(HApf,weights,stdv,obs_global_idx2residual_idx);
+					}
+					else
+					{
+						nInvalidJacobs += sparse_hessian_update_numeric(HAp);
+						nInvalidJacobs += sparse_hessian_update_numeric(Hf);
+						nInvalidJacobs += sparse_hessian_update_numeric(HApf);
+					}
 					DETAILED_PROFILING_LEAVE("opt.sparse_hessian_update_numeric")
 
 					my_solver.realize_relinearized();
@@ -646,7 +705,14 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 
 				// Update gradient:
 				DETAILED_PROFILING_ENTER("opt.compute_minus_gradient")
-				compute_minus_gradient(/* Out: */ minus_grad, /* In: */ dh_dAp, dh_df, residuals, obs_global_idx2residual_idx);
+				if ( parameters.srba.use_gamma_kernel && nObs > parameters.srba.min_obs_gamma_kernel )
+				{
+					compute_minus_gradient(/* Out: */ minus_grad, /* In: */ dh_dAp, dh_df, residuals, weights, stdv, obs_global_idx2residual_idx);
+				}
+				else
+				{
+					compute_minus_gradient(/* Out: */ minus_grad, /* In: */ dh_dAp, dh_df, residuals, obs_global_idx2residual_idx);
+				}
 				DETAILED_PROFILING_LEAVE("opt.compute_minus_gradient")
 
 				const double norm_inf_min_grad = mrpt::math::norm_inf(minus_grad);
