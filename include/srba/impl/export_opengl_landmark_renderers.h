@@ -41,8 +41,8 @@ template <> struct LandmarkRendererBase<landmark_rendering_as_point>
 		// For each fixed known LM, add a point to a point cloud
 		//  and a text label with the landmark ID:
 		mrpt::opengl::CPointCloudPtr  gl_lms = mrpt::opengl::CPointCloud::Create();
-		gl_lms->setPointSize(5);
-		gl_lms->setColor(0,0,1);
+		gl_lms->setPointSize(2);
+		gl_lms->setColor(0.17,0.30,0.62);	// TODO: add landmark color (if available)
 
 		scene.insert(gl_lms);
 
@@ -96,13 +96,13 @@ template <> struct LandmarkRendererBase<landmark_rendering_as_point>
 			}
 
 			// If landmark_t defines this kind of renderer, we
-		 mrpt::math::TPoint3D p_wrt_base;
+			mrpt::math::TPoint3D p_wrt_base;
 			RBA::landmark_t::relativeEuclideanLocation(itLM->second.pos, p_wrt_base);
 
-		 mrpt::math::TPoint3D p_global;
+			mrpt::math::TPoint3D p_global;
 			base_pose.composePoint(p_wrt_base,p_global);
 
-			gl_lms->insertPoint(p_global.x,p_global.y,p_global.z);
+			gl_lms->insertPoint(p_global.x,p_global.y,p_global.z);	// TODO: add landmark color (if available)
 
 			if( options.show_unknown_feats_ids )
 			{
