@@ -27,6 +27,7 @@
 #include "srba_edge_creation_policies.h"
 #include "landmark_jacob_families.h"
 #include "landmark_matcher.h"
+#include "models/observations.h"
 
 namespace srba
 {
@@ -40,7 +41,7 @@ namespace srba
 	{
 		typedef ecps::local_areas_fixed_size            edge_creation_policy_t;  //!< One of the most important choices: how to construct the relative coordinates graph problem
 		typedef options::sensor_pose_on_robot_none      sensor_pose_on_robot_t;  //!< The sensor pose coincides with the robot pose
-        typedef options::observation_noise_identity     obs_noise_matrix_t;      //!< The sensor noise matrix is the same for all observations and equal to \sigma * I(identity)
+		typedef options::observation_noise_identity<observations::StereoCamera>     obs_noise_matrix_t;      //!< The sensor noise matrix is the same for all observations and equal to \sigma * I(identity)
 		typedef options::solver_LM_schur_dense_cholesky solver_t;                //!< Solver algorithm (Default: Lev-Marq, with Schur, with dense Cholesky)
 	};
 
@@ -63,8 +64,8 @@ namespace srba
 	  * \tparam OBS_TYPE The type of observations.
 	  * \tparam RBA_OPTIONS A struct with nested typedefs which can be used to tune and customize the behavior of this class.
 	  */
-    template <class KF2KF_POSE_TYPE,class LM_TYPE,class OBS_TYPE,class RBA_OPTIONS = RBA_OPTIONS_DEFAULT>
-    class RbaEngine
+	template <class KF2KF_POSE_TYPE,class LM_TYPE,class OBS_TYPE,class RBA_OPTIONS = RBA_OPTIONS_DEFAULT>
+	class RbaEngine
 	{
 	public:
 		/** @name Templatized typedef's
@@ -441,8 +442,9 @@ namespace srba
 			// Parameters for optimize_*()
 			// -------------------------------------
 			bool   optimize_new_edges_alone; //!< (Default:true) Before running a whole "local area" optimization, try to optimize new edges one by one to have a better starting point.
-            bool   use_gamma_kernel;
-            bool   use_robust_kernel;
+			bool   use_gamma_kernel;
+			size_t min_obs_gamma_kernel;
+			bool   use_robust_kernel;
 			bool   use_robust_kernel_stage1;
 			double kernel_param;
 			size_t max_iters;
@@ -464,8 +466,8 @@ namespace srba
 		/** The unique struct which hold all the parameters from the different SRBA modules (sensors, optional features, optimizers,...) */
 		struct TAllParameters
 		{
-            TSRBAParameters                                             srba;        //!< Different parameters for the SRBA methods \sa sensor_params
-            typename obs_t::TObservationParams                          sensor;      //!< Sensor-specific parameters (sensor calibration, etc.) \sa parameters
+			TSRBAParameters                                             srba;        //!< Different parameters for the SRBA methods \sa sensor_params
+			typename obs_t::TObservationParams                          sensor;      //!< Sensor-specific parameters (sensor calibration, etc.) \sa parameters
 			typename RBA_OPTIONS::sensor_pose_on_robot_t::parameters_t  sensor_pose; //!< Parameters related to the relative pose of sensors wrt the robot (if applicable) 
 			typename RBA_OPTIONS::obs_noise_matrix_t::parameters_t      obs_noise;   //!< Parameters related to the sensor noise covariance matrix
 			typename RBA_OPTIONS::edge_creation_policy_t::parameters_t  ecp;         //!< Parameters for the edge creation policy
@@ -514,6 +516,8 @@ namespace srba
 			*/
 		template <class SPARSEBLOCKHESSIAN>
 		size_t sparse_hessian_update_numeric( SPARSEBLOCKHESSIAN & H ) const;
+		template <class SPARSEBLOCKHESSIAN>
+		size_t sparse_hessian_update_numeric( SPARSEBLOCKHESSIAN & H , vector_weights_t & weights, double & stdv, const std::map<size_t,size_t> &obs_global_idx2residual_idx );
 
 
 	protected:
@@ -788,15 +792,15 @@ namespace srba
 			const std::map<size_t,size_t> &obs_global_idx2residual_idx
 			) const;
 
-        void compute_minus_gradient(
-            Eigen::VectorXd & minus_grad,
-            const std::vector<typename TSparseBlocksJacobians_dh_dAp::col_t*> & sparse_jacobs_Ap,
-            const std::vector<typename TSparseBlocksJacobians_dh_df::col_t*> & sparse_jacobs_f,
-            const vector_residuals_t  & residuals,
-            const vector_weights_t  & weights,
-            const double & stdv,
-            const std::map<size_t,size_t> &obs_global_idx2residual_idx
-            );
+		void compute_minus_gradient(
+			Eigen::VectorXd & minus_grad,
+			const std::vector<typename TSparseBlocksJacobians_dh_dAp::col_t*> & sparse_jacobs_Ap,
+			const std::vector<typename TSparseBlocksJacobians_dh_df::col_t*> & sparse_jacobs_f,
+			const vector_residuals_t  & residuals,
+			const vector_weights_t  & weights,
+			const double & stdv,
+			const std::map<size_t,size_t> &obs_global_idx2residual_idx
+			);
 
 		/** Each of the observations used during the optimization */
 		struct TObsUsed
@@ -818,25 +822,25 @@ namespace srba
 			const std::vector<TObsUsed> & observations // In:
 			) const;
 
-        inline double reprojection_residuals(
-            vector_residuals_t & residuals, // Out:
-            const std::vector<TObsUsed> & observations, // In:
-            vector_weights_t & weights,     // Out
-            double & stdv                     // Out
-            ) const;
+		inline double reprojection_residuals(
+				vector_residuals_t & residuals, // Out:
+				const std::vector<TObsUsed> & observations, // In:
+				vector_weights_t & weights,     // Out
+				double & stdv                     // Out
+				) ;
 
 		/** pseudo-huber cost function */
 		static inline double huber_kernel(double delta, const double kernel_param)
 		{
-            //return std::abs(2*mrpt::utils::square(kernel_param)*(std::sqrt(1+mrpt::utils::square(delta/kernel_param))-1));
-            return std::log(1+delta);
+			//return std::abs(2*mrpt::utils::square(kernel_param)*(std::sqrt(1+mrpt::utils::square(delta/kernel_param))-1));
+			return std::log(1+delta);
 		}
 
-        /** Cauchy loss function */
-        static inline double cauchy_loss_kernel(double delta)
-        {
-            return std::log(1+delta);
-        }
+		/** Cauchy loss function */
+		static inline double cauchy_loss_kernel(double delta)
+		{
+			return std::log(1+delta);
+		}
 
 		MRPT_MAKE_ALIGNED_OPERATOR_NEW  // Required by Eigen containers
 	}; // end of class "RbaEngine"
