@@ -95,11 +95,11 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::compute_minus_grad
 	Eigen::VectorXd & minus_grad,
 	const std::vector<typename TSparseBlocksJacobians_dh_dAp::col_t*> & sparse_jacobs_Ap,
 	const std::vector<typename TSparseBlocksJacobians_dh_df::col_t*> & sparse_jacobs_f,
-    const vector_residuals_t  & residuals,
+	const vector_residuals_t  & residuals,
 	const vector_weights_t & weights,
-    const double & stdv,
+	const double & stdv,
 	const std::map<size_t,size_t> &obs_global_idx2residual_idx
-    )
+	)
 {
 	// Problem dimensions:
 	const size_t POSE_DIMS = kf2kf_pose_t::REL_POSE_DIMS;
@@ -115,7 +115,12 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::compute_minus_grad
 		minus_grad.resize(nUnknowns_scalars);
 
 	//size_t running_idx_obs=0; // for the precomputed "sequential_obs_indices"
-    this->parameters.obs_noise.std_noise_observations = stdv;
+	this->parameters.obs_noise.std_noise_observations = stdv;
+
+	const size_t OBS_DIMS  = rba_options_t::obs_noise_matrix_t::OBS_DIMS;
+	Eigen::Matrix<double,OBS_DIMS,OBS_DIMS> W = Eigen::Matrix<double,OBS_DIMS,OBS_DIMS>::Identity();
+
+	//std::cout << std::endl << std::endl << stdv << std::endl << std::endl;
 
 	// grad_Ap:
 	for (size_t i=0;i<nUnknowns_k2k;i++)
@@ -134,13 +139,13 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::compute_minus_grad
 			const size_t resid_idx = it_obs->second;
 
 			// Accumulate sub-gradient: // g += J^t * \Lambda * residual
-            Eigen::Matrix<double,OBS_TYPE::OBS_DIMS,OBS_TYPE::OBS_DIMS> W;
-            W(0,0) = weights[resid_idx](0);
-            W(1,1) = weights[resid_idx](0);
-            W(2,2) = weights[resid_idx](1);
-            W(3,3) = weights[resid_idx](1);
-            this->parameters.obs_noise.lambda = W;
-            RBA_OPTIONS::obs_noise_matrix_t::template accum_Jtr(accum_g_i, itJ->second.num, residuals[ resid_idx ], obs_idx, this->parameters.obs_noise );
+			W(0,0) = weights[resid_idx](0);
+			W(1,1) = weights[resid_idx](0);
+			W(2,2) = weights[resid_idx](1);
+			W(3,3) = weights[resid_idx](1);
+			this->parameters.obs_noise.lambda = W;
+
+			RBA_OPTIONS::obs_noise_matrix_t::template accum_Jtr(accum_g_i, itJ->second.num, residuals[ resid_idx ], obs_idx, this->parameters.obs_noise );
 		}
 		// Do scaling (if applicable):
 		RBA_OPTIONS::obs_noise_matrix_t::template scale_Jtr(accum_g_i, this->parameters.obs_noise );
@@ -164,13 +169,22 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::compute_minus_grad
 			const size_t resid_idx = it_obs->second;
 
 			// Accumulate sub-gradient: // g += J^t * \Lambda * residual
-            RBA_OPTIONS::obs_noise_matrix_t::template accum_Jtr(accum_g_i, itJ->second.num, residuals[ resid_idx ], obs_idx, this->parameters.obs_noise );
+			W(0,0) = weights[resid_idx](0);
+			W(1,1) = weights[resid_idx](0);
+			W(2,2) = weights[resid_idx](1);
+			W(3,3) = weights[resid_idx](1);
+			this->parameters.obs_noise.lambda = W;
+			RBA_OPTIONS::obs_noise_matrix_t::template accum_Jtr(accum_g_i, itJ->second.num, residuals[ resid_idx ], obs_idx, this->parameters.obs_noise );
 		}
 		// Do scaling (if applicable):
 		RBA_OPTIONS::obs_noise_matrix_t::template scale_Jtr(accum_g_i, this->parameters.obs_noise );
 
 		minus_grad.block<LM_DIMS,1>(idx_start_f+i*LM_DIMS,0) = accum_g_i;
 	}
+
+	// Reset default values
+	this->parameters.obs_noise.std_noise_observations = 1.f;
+	this->parameters.obs_noise.lambda = Eigen::Matrix<double,OBS_DIMS,OBS_DIMS>::Identity();
 }
 
 } // End of namespaces
