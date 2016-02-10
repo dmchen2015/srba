@@ -180,6 +180,13 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::determine_kf2kf_ed
 				m_profiler.leave("define_new_keyframe.determine_edges.lm_matcher");
 			} // end 2nd attempt
 
+			// -----------------------------------------------------------------------------------------------
+			// RUBEN DEBUG: found_ok set to false to check if the Horn's initialization is causing the failure
+			// -----------------------------------------------------------------------------------------------
+			//std::cout << std::endl << "Found ok: "  << found_ok << std::endl << std::endl;
+			found_ok = false;
+			// -----------------------------------------------------------------------------------------------
+
 			if (found_ok)
 			{
 				// Take into account the sensor pose wrt the KF: Rotate/translate if the sensor is not at the robot origin of coordinates: 
@@ -261,8 +268,6 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::determine_kf2kf_ed
 		rba_state.last_timestep_touched_kfs.insert( nei_edge.from );
 		rba_state.last_timestep_touched_kfs.insert( nei_edge.to );
 	}
-
-
 }
 
 } // End of namespaces
