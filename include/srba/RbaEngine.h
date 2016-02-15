@@ -72,6 +72,7 @@ namespace srba
 		    @{ */
 		typedef RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS> rba_engine_t;
 
+
 		typedef KF2KF_POSE_TYPE  kf2kf_pose_t;
 		typedef LM_TYPE          landmark_t;
 		typedef OBS_TYPE         obs_t;
@@ -209,6 +210,13 @@ namespace srba
 		void define_new_keyframe(
 			const typename traits_t::new_kf_observations_t  & obs,
 			TNewKeyFrameInfo   & out_new_kf_info,
+			const bool           run_local_optimization = true
+			);
+
+		void define_new_keyframe(
+			const typename traits_t::new_kf_observations_t  & obs,
+			TNewKeyFrameInfo   & out_new_kf_info,
+			pose_t odometry_pose,
 			const bool           run_local_optimization = true
 			);
 
@@ -530,7 +538,13 @@ namespace srba
 		void determine_kf2kf_edges_to_create(
 			const TKeyFrameID               new_kf_id,
 			const typename traits_t::new_kf_observations_t   & obs,
-			std::vector<TNewEdgeInfo> &new_k2k_edge_ids );
+			std::vector<TNewEdgeInfo> &new_k2k_edge_ids);
+
+		void determine_kf2kf_edges_to_create(
+			const TKeyFrameID               new_kf_id,
+			const typename traits_t::new_kf_observations_t   & obs,
+			std::vector<TNewEdgeInfo> &new_k2k_edge_ids,
+			pose_t odometry_pose );
 
 		/**
 		  * \param observation_indices_to_optimize Indices wrt \a rba_state.all_observations. An empty vector means use ALL the observations involving the selected unknowns.
@@ -832,8 +846,7 @@ namespace srba
 		/** pseudo-huber cost function */
 		static inline double huber_kernel(double delta, const double kernel_param)
 		{
-			//return std::abs(2*mrpt::utils::square(kernel_param)*(std::sqrt(1+mrpt::utils::square(delta/kernel_param))-1));
-			return std::log(1+delta);
+			return std::abs(2*mrpt::utils::square(kernel_param)*(std::sqrt(1+mrpt::utils::square(delta/kernel_param))-1));
 		}
 
 		/** Cauchy loss function */
