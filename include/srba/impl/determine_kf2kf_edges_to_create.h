@@ -301,32 +301,29 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::determine_kf2kf_ed
 		// In loop closures, neither "nei.to" nor "nei.from" are the latest KF, both may be existing center KFs:
 		k2k_edge_t & nei_edge = rba_state.k2k_edges[nei.id];
 		const bool nei_edge_does_not_touch_cur_kf = (nei_edge.to!=new_kf_id) && (nei_edge.from!=new_kf_id);
-        const bool op2 = rba_state.last_timestep_touched_kfs.count(nei_edge.from) != 0;
+        const bool from_kf_touched_last_time = rba_state.last_timestep_touched_kfs.count(nei_edge.from) != 0;
 
-        std::cout << nei_edge_does_not_touch_cur_kf << " and " << op2 << std::endl;
+        VERBOSE_LEVEL(2) << "Tests to carry out a search of relative pose from spanning tree: Current KF touched (" << nei_edge_does_not_touch_cur_kf << ") and 'from' edge touched last time (" << from_kf_touched_last_time << ")" << std::endl;
 		// Method #1: look at last kf's kf2kf edges for an initial guess to ease optimization:
-        // PACO: This should happen almost always! ()
-        if ( !nei_edge_does_not_touch_cur_kf && op2 )
+        if ( !nei_edge_does_not_touch_cur_kf && from_kf_touched_last_time )
 		{
             pose_t unitPose;
             const pose_t *rel_pose = new_kf_id-1 == nei_edge.from ?
-                        &unitPose :
+                        &unitPose : // empty pose
                         get_kf_relative_pose(new_kf_id-1, nei_edge.from);
 			if (rel_pose)
 			{
 				// Found: reuse this relative pose as a good initial guess for the estimation
-                // PACO:
                 mrpt::poses::CPose3D sensor_pose;
                 RBA_OPTIONS::sensor_pose_on_robot_t::template robot2sensor<mrpt::poses::CPose3D>(mrpt::poses::CPose3D(), sensor_pose, this->parameters.sensor_pose);
 
-                mrpt::poses::CPose3D auxpose = (sensor_pose+odometry_pose)+(-sensor_pose);
-                mrpt::poses::CPose3D auxpose2; auxpose2.composeFrom(*rel_pose,auxpose);
-                std::cout << "Estimated pose between: " << nei_edge.from << " and " << new_kf_id-1 << ":" << auxpose2 << std::endl;
-                // END PACO
+                mrpt::poses::CPose3D odometry_pose_wrt_robot = (sensor_pose+odometry_pose)+(-sensor_pose);
+                mrpt::poses::CPose3D estimated_pose; estimated_pose.composeFrom(*rel_pose,odometry_pose_wrt_robot);
+                VERBOSE_LEVEL(2) << "Estimated pose (from spanning tree) between edges: " << nei_edge.from << " and " << new_kf_id-1 << ": " << estimated_pose << std::endl;
                 const bool edge_dir_to_newkf  = (nei_edge.to==new_kf_id);
 				if (edge_dir_to_newkf)
-                     nei_edge.inv_pose = - pose_t(auxpose2)/*(*rel_pose)*/; // Note the "-" inverse operator, it is important
-                else nei_edge.inv_pose =   pose_t(auxpose2)/* *rel_pose*/;
+                     nei_edge.inv_pose = - pose_t(estimated_pose)/*(*rel_pose)*/; // Note the "-" inverse operator, it is important
+                else nei_edge.inv_pose =   pose_t(estimated_pose)/* *rel_pose*/;
                 nei.has_approx_init_val = true;
 			}
 		}
@@ -335,8 +332,7 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::determine_kf2kf_ed
 		// (1st attempt) Direct relative pose between the two KFs at each end of the new edge.
 		if (!nei.has_approx_init_val)
 		{
-            std::cout << "Not found relative pose in the spanning tree between: " << new_kf_id-1 << " and " << nei_edge.from << std::endl;
-            mrpt::system::pause();
+            VERBOSE_LEVEL(2) << "Not found (in the spanning tree) a relative pose between edges: " << new_kf_id-1 << " and " << nei_edge.from << ". Using Horn instead!" << std::endl;
 
             // Landmarks in this new KF are in `obs`: const typename traits_t::new_kf_observations_t   & obs
 			// Landmarks in the old reference KF are in: `other_k2f_edges`
@@ -536,8 +532,7 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::determine_kf2kf_ed
 		rba_state.last_timestep_touched_kfs.insert( nei_edge.from );
 		rba_state.last_timestep_touched_kfs.insert( nei_edge.to );
 
-        // PACO:
-        std::cout << "Saved in 'last_timestep_touched_kfs': " << nei_edge.from << " and " << nei_edge.to << std::endl;
+        VERBOSE_LEVEL(2) << "Edges saved in 'last_timestep_touched_kfs': " << nei_edge.from << " and " << nei_edge.to << std::endl;
 	}
 
 
