@@ -144,6 +144,239 @@ namespace srba {
 
 	// -------------------------------------------------------------------------------------------------------------
 
+	/** Sensor model: 3D line segment landmarks in Euclidean coordinates + Stereo camera observations (no distortion) */
+	template <>
+	struct sensor_model<landmarks::Euclidean3DLineSegments,observations::StereoCameraLineSegment>
+	{
+		// --------------------------------------------------------------------------------
+		// Typedefs for the sake of generality in the signature of methods below:
+		//   *DONT FORGET* to change these when writing new sensor models.
+		// --------------------------------------------------------------------------------
+		typedef observations::StereoCameraLineSegment	OBS_T;
+		typedef landmarks::Euclidean3DLineSegments      LANDMARK_T;
+		// --------------------------------------------------------------------------------
+
+		static const size_t OBS_DIMS = OBS_T::OBS_DIMS;
+		static const size_t LM_DIMS  = LANDMARK_T::LM_DIMS;
+
+		typedef Eigen::Matrix<double,OBS_DIMS,LM_DIMS>			TJacobian_dh_dx;     //!< A Jacobian of the correct size for each dh_dx
+		typedef landmark_traits<LANDMARK_T>::array_landmark_t   array_landmark_t;    //!< a 2D or 3D point
+		typedef OBS_T::TObservationParams						TObservationParams;
+
+		/** Executes the (negative) observation-error model: "-( h(lm_pos,pose) - z_obs)"
+		  * \param[out] out_obs_err The output of the predicted sensor value
+		  * \param[in] z_obs The real observation, to be contrasted to the prediction of this sensor model
+		  * \param[in] base_pose_wrt_observer The relative pose of the observed landmark's base KF, wrt to the current sensor pose (which may be different than the observer KF pose if the sensor is not at the "robot origin").
+		  * \param[in] lm_pos The relative landmark position wrt its base KF.
+		  * \param[in] params The sensor-specific parameters.
+		  */
+		template <class POSE_T>
+		static void observe_error(
+			observation_traits<OBS_T>::array_obs_t				& out_obs_err,
+			const observation_traits<OBS_T>::array_obs_t        & l_obs,
+			const POSE_T                                        & base_pose_wrt_observer,
+			const landmark_traits<LANDMARK_T>::array_landmark_t & lm_pos_s,
+			const landmark_traits<LANDMARK_T>::array_landmark_t & lm_pos_e,
+			const OBS_T::TObservationParams                     & params )
+		{
+			double slx,sly,slz, elx,ely,elz; // wrt cam (local coords)
+			base_pose_wrt_observer.composePoint(lm_pos_s[0],lm_pos_s[1],lm_pos_s[2], slx,sly,slz);
+			ASSERT_(slz!=0)
+			base_pose_wrt_observer.composePoint(lm_pos_e[0],lm_pos_e[1],lm_pos_e[2], elx,ely,elz);
+			ASSERT_(elz!=0)
+
+			// observed line segments
+			Eigen::Vector3f l_obs_l, l_obs_r, spl, epl, spr, epr;
+			spl << l_obs[0], l_obs[1], 1.;
+			spr << l_obs[0]-l_obs[2], l_obs[1], 1.;
+			epl << l_obs[3], l_obs[4], 1.;
+			epr << l_obs[3]-l_obs[5], l_obs[4], 1.;
+			l_obs_l = spl.cross(epl);
+			l_obs_l = l_obs_l / std::sqrt( l_obs_l(0)*l_obs_l(0)+l_obs_l(1)*l_obs_l(1) );
+			l_obs_r = spr.cross(epr);
+			l_obs_r = l_obs_r / std::sqrt( l_obs_r(0)*l_obs_r(0)+l_obs_r(1)*l_obs_r(1) );
+
+			// Pinhole model: Left camera.
+			const mrpt::utils::TCamera &lc = params.camera_calib.leftCamera;
+			/*
+			observation_traits<OBS_T>::array_obs_t  pred_obs_s, pred_obs_e;  // prediction
+			pred_obs_s[0] = lc.cx() + lc.fx() * slx/slz;
+			pred_obs_s[1] = lc.cy() + lc.fy() * sly/slz;
+			pred_obs_e[0] = lc.cx() + lc.fx() * elx/elz;
+			pred_obs_e[1] = lc.cy() + lc.fy() * ely/elz;
+			*/
+			Eigen::Vector3f pred_obs_s, pred_obs_e;
+			pred_obs_s << lc.cx() + lc.fx() * slx/slz,
+						  lc.cy() + lc.fy() * sly/slz,
+						  1.;
+			pred_obs_e << lc.cx() + lc.fx() * elx/elz,
+						  lc.cy() + lc.fy() * ely/elz,
+						  1.;
+
+			out_obs_err[0] = l_obs_l.dot( pred_obs_s );
+			out_obs_err[1] = l_obs_l.dot( pred_obs_e );
+			out_obs_err[2] = 0.;	// different size of observation and error
+
+			// Project point relative to right-camera:
+			const mrpt::poses::CPose3DQuat R2L = -params.camera_calib.rightCameraPose; // R2L = (-) Left-to-right_camera_pose
+
+			// base_wrt_right_cam = ( (-)L2R ) (+) L2Base
+			//mrpt::poses::CPose3DQuat base_wrt_right_cam(mrpt::poses::UNINITIALIZED_POSE);
+			//base_wrt_right_cam.composeFrom(R2L,mrpt::poses::CPose3DQuat(base_pose_wrt_observer));
+
+			double srx,sry,srz, erx,ery,erz; // wrt cam (local coords)
+			//base_wrt_right_cam.composePoint(lx,ly,lz, rx,ry,rz);
+
+			// xji_l_right = R2L (+) Xji_l
+			R2L.composePoint(slx,sly,slz, srx,sry,srz);
+			ASSERT_(srz!=0)
+			R2L.composePoint(elx,ely,elz, erx,ery,erz);
+			ASSERT_(erz!=0)
+
+			// Pinhole model: Right camera.
+			const mrpt::utils::TCamera &rc = params.camera_calib.rightCamera;
+			/*
+			pred_obs_s[0] = rc.cx() + rc.fx() * srx/srz;
+			pred_obs_s[1] = rc.cy() + rc.fy() * sry/srz;
+			pred_obs_e[0] = rc.cx() + rc.fx() * erx/erz;
+			pred_obs_e[1] = rc.cy() + rc.fy() * ery/erz;
+			*/
+			pred_obs_s << rc.cx() + rc.fx() * srx/srz,
+						  rc.cy() + rc.fy() * sry/srz,
+						  1.;
+			pred_obs_e << rc.cx() + rc.fx() * erx/erz,
+						  rc.cy() + rc.fy() * ery/erz,
+						  1.;
+			out_obs_err[3] = l_obs_r.dot( pred_obs_s );
+			out_obs_err[4] = l_obs_r.dot( pred_obs_e );
+			out_obs_err[5] = 0.;	// different size of observation and error
+
+			//if( abs(out_obs_err[3]) == 1. || abs(out_obs_err[3]) == 1. )
+				//std::cout << "z_obs = " << z_obs.transpose() << "\t pred_obs = " << pred_obs.transpose() << "\t delta = " << out_obs_err.transpose() << std::endl;
+
+		}
+
+		/** Evaluates the partial Jacobian dh_dx:
+		  * \code
+		  *            d h(x')
+		  * dh_dx = -------------
+		  *             d x'
+		  *
+		  * \endcode
+		  *  With:
+		  *    - x' = x^{j,i}_l  The relative location of the observed landmark wrt to the robot/camera at the instant of observation. (See notation on papers)
+		  *    - h(x): Observation model: h(): landmark location --> observation
+		  *
+		  * \param[out] dh_dx The output matrix Jacobian. Values at input are undefined (i.e. they cannot be asssumed to be zeros by default).
+		  * \param[in]  xji_l The relative location of the observed landmark wrt to the robot/camera at the instant of observation.
+		  * \param[in] sensor_params Sensor-specific parameters, as set by the user.
+		  *
+		  * \return true if the Jacobian is well-defined, false to mark it as ill-defined and ignore it during this step of the optimization
+		  */
+		static bool eval_jacob_dh_dx(
+			TJacobian_dh_dx          & dh_dx,
+			const array_landmark_t   & xji_l,
+			const Eigen::VectorXf	 & l_obs,
+			const TObservationParams & sensor_params)
+		{
+			// xji_l[0:2]=[X Y Z]
+			// If the point is behind us, mark this Jacobian as invalid. This is probably a temporary situation until we get closer to the optimum.
+			if ( xji_l[2]<=0. || xji_l[5]<=0. )
+				return false;
+
+			// Left camera:
+			{
+				const double lxfx  = sensor_params.camera_calib.leftCamera.fx() * l_obs(0);
+				const double lyfy  = sensor_params.camera_calib.leftCamera.fy() * l_obs(1);
+				// start point
+				const double pz_inv_s  = 1.0/xji_l[2];
+				const double pz_inv2_s = pz_inv_s*pz_inv_s;
+				dh_dx.coeffRef(0,0)  = lxfx * pz_inv_s;
+				dh_dx.coeffRef(0,1)  = lyfy * pz_inv_s;
+				dh_dx.coeffRef(0,2)  = - (lxfx * xji_l[0] + lyfy * xji_l[1]) * pz_inv2_s ;
+				// end point
+				const double pz_inv_e  = 1.0/xji_l[5];
+				const double pz_inv2_e = pz_inv_e*pz_inv_e;
+				dh_dx.coeffRef(1,0)  = lxfx * pz_inv_e;
+				dh_dx.coeffRef(1,1)  = lyfy * pz_inv_e;
+				dh_dx.coeffRef(1,2)  = - (lxfx * xji_l[3] + lyfy * xji_l[4]) * pz_inv2_e ;
+			}
+
+			// Right camera:
+			array_landmark_t   xji_l_right_s, xji_l_right_e; // xji_l_right = R2L (+) Xji_l
+			const mrpt::poses::CPose3DQuat R2L = -sensor_params.camera_calib.rightCameraPose; // R2L = (-) Left-to-right_camera_pose
+			R2L.composePoint(
+				xji_l[0],xji_l[1],xji_l[2],
+				xji_l_right_s[0],xji_l_right_s[1],xji_l_right_s[2]);
+			R2L.composePoint(
+				xji_l[3],xji_l[4],xji_l[5],
+				xji_l_right_e[0],xji_l_right_e[1],xji_l_right_e[2]);
+			{
+				const double lxfx  = sensor_params.camera_calib.leftCamera.fx() * l_obs(3);
+				const double lyfy  = sensor_params.camera_calib.leftCamera.fy() * l_obs(4);
+				// start point
+				const double pz_inv_s  = 1.0/xji_l_right_s[2];
+				const double pz_inv2_s = pz_inv_s*pz_inv_s;
+				dh_dx.coeffRef(2,0)  = lxfx * pz_inv_s;
+				dh_dx.coeffRef(2,1)  = lyfy * pz_inv_s;
+				dh_dx.coeffRef(2,2)  = - (lxfx * xji_l_right_s[0] + lyfy * xji_l_right_s[1]) * pz_inv2_s ;
+				// end point
+				const double pz_inv_e  = 1.0/xji_l_right_e[2];
+				const double pz_inv2_e = pz_inv_e*pz_inv_e;
+				dh_dx.coeffRef(3,0)  = lxfx * pz_inv_e;
+				dh_dx.coeffRef(3,1)  = lyfy * pz_inv_e;
+				dh_dx.coeffRef(3,2)  = - (lxfx * xji_l_right_e[0] + lyfy * xji_l_right_e[1]) * pz_inv2_e ;
+			}
+
+			return true;
+		}
+
+		/** Inverse observation model for first-seen landmarks. Needed to avoid having landmarks at (0,0,0) which
+		  *  leads to undefined Jacobians. This is invoked only when both "unknown_relative_position_init_val" and "is_fixed" are "false"
+		  *  in an observation.
+		  * The LM location must not be exact at all, just make sure it doesn't have an undefined Jacobian.
+		  *
+		  * \param[out] out_lm_pos The relative landmark position wrt the current observing KF.
+		  * \param[in]  obs The observation itself.
+		  * \param[in]   params The sensor-specific parameters.
+		  */
+		static void inverse_sensor_model(
+			landmark_traits<LANDMARK_T>::array_landmark_t & out_lm_pos,
+			const observation_traits<OBS_T>::obs_data_t   & obs,
+			const OBS_T::TObservationParams               & params)
+		{
+			//     > +Z
+			//    /
+			//   /
+			//  +----> +X
+			//  |
+			//  |
+			//  V +Y
+			//
+			const double fxl = params.camera_calib.leftCamera.fx();
+			const double fyl = params.camera_calib.leftCamera.fy();
+			const double cxl = params.camera_calib.leftCamera.cx();
+			const double cyl = params.camera_calib.leftCamera.cy();
+			const double baseline  = params.camera_calib.rightCameraPose.x();
+			ASSERT_(baseline!=0)
+			// start point
+			const double disp_s = std::max(0.001f, obs.start_l_px.x - obs.start_r_px.x);
+			const double Zs = fxl*baseline/disp_s;
+			out_lm_pos[0] = (obs.start_l_px.x - cxl)*Zs/fxl;
+			out_lm_pos[1] = (obs.start_l_px.y - cyl)*Zs/fyl;
+			out_lm_pos[2] = Zs;
+			// end point
+			const double disp_e = std::max(0.001f, obs.end_l_px.x - obs.end_r_px.x);
+			const double Ze = fxl*baseline/disp_e;
+			out_lm_pos[3] = (obs.end_l_px.x - cxl)*Ze/fxl;
+			out_lm_pos[4] = (obs.end_l_px.y - cyl)*Ze/fyl;
+			out_lm_pos[5] = Ze;
+		}
+
+	};  // end of struct sensor_model<landmarks::Euclidean3D,observations::StereoCamera>
+
+	// -------------------------------------------------------------------------------------------------------------
+
 	/** Sensor model: 3D landmarks in Euclidean coordinates + Stereo camera observations (no distortion) */
 	template <>
 	struct sensor_model<landmarks::Euclidean3D,observations::StereoCamera>
@@ -208,6 +441,10 @@ namespace srba {
 			pred_obs[2] = rc.cx() + rc.fx() * rx/rz;
 			pred_obs[3] = rc.cy() + rc.fy() * ry/rz;
 			out_obs_err = z_obs - pred_obs;
+
+			if( abs(out_obs_err[3]) == 1 || abs(out_obs_err[3]) == 1. )
+				std::cout << "z_obs = " << z_obs.transpose() << "\t pred_obs = " << pred_obs.transpose() << "\t delta = " << out_obs_err.transpose() << std::endl;
+
 		}
 
 		/** Evaluates the partial Jacobian dh_dx:

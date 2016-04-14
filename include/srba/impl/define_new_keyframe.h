@@ -169,8 +169,11 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::define_new_keyfram
 				m_profiler.enter("define_new_keyframe.opt_new_edges");
 
 				// temporarily disable robust kernel for initialization (faster)
-				const bool old_kernel = parameters.srba.use_robust_kernel;
-				parameters.srba.use_robust_kernel= parameters.srba.use_robust_kernel_stage1;
+				const bool old_kernel       = parameters.srba.use_robust_kernel;
+				const bool old_gamma_kernel = parameters.srba.use_gamma_kernel;
+
+				parameters.srba.use_robust_kernel = parameters.srba.use_robust_kernel_stage1;
+				parameters.srba.use_gamma_kernel  = parameters.srba.use_gamma_kernel_stage1;
 
 				std::vector<size_t>  k2f_edges_to_opt;  // Empty: only initialize k2k edges.
 				std::vector<size_t>  k2k_edges_to_opt(1);
@@ -190,6 +193,7 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::define_new_keyfram
 				}
 
 				parameters.srba.use_robust_kernel = old_kernel;
+				parameters.srba.use_gamma_kernel  = old_gamma_kernel;
 
 				m_profiler.leave("define_new_keyframe.opt_new_edges");
 			}

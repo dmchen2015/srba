@@ -24,6 +24,15 @@ namespace srba {
 		};
 	};
 
+	/** Render 2D/3D line landmarks. */
+	struct landmark_rendering_as_line
+	{   /** Parameters to be merged with RbaEngine<>::TOpenGLRepresentationOptions */
+		struct TOpenGLRepresentationOptionsExtra
+		{
+		};
+	};
+
+
 	/** Render "fake graph-slam-like landmarks" as keyframe-to-keyframe constraints. */
 	struct landmark_rendering_as_pose_constraints 
 	{   /** Parameters to be merged with RbaEngine<>::TOpenGLRepresentationOptions */

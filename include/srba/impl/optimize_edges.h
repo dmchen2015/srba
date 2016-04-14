@@ -400,7 +400,7 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 			residuals, // Out
 			involved_obs, // In
 			weights, // Out
-			stdv     // Out
+			stdv,"histogram_residuals_ini.txt"   // Out
 			);
 		//while(true);
 	}
@@ -408,7 +408,7 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 	{
 		total_proj_error = reprojection_residuals(
 			residuals, // Out
-			involved_obs // In
+			involved_obs,"histogram_residuals_ini.txt" // In
 			);
 	}
 	DETAILED_PROFILING_LEAVE("opt.reprojection_residuals")
@@ -479,7 +479,6 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 		compute_minus_gradient(/* Out: */ minus_grad, /* In: */ dh_dAp, dh_df, residuals, obs_global_idx2residual_idx);
 	}
 	DETAILED_PROFILING_LEAVE("opt.compute_minus_gradient")
-
 
 	// Build symbolic structures for Schur complement:
 	// ---------------------------------------------------------------------------------
@@ -593,7 +592,6 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 			}
 			DETAILED_PROFILING_LEAVE("opt.add_deltas_to_feats")
 
-
 			// Update the Spanning tree, making a back-up copy:
 			// ------------------------------------------------------
 			DETAILED_PROFILING_ENTER("opt.make_backup_copy_spntree_num")
@@ -609,7 +607,6 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 			}
 			DETAILED_PROFILING_LEAVE("opt.make_backup_copy_spntree_num")
 
-
 			DETAILED_PROFILING_ENTER("opt.update_spanning_tree_num")
 			for (size_t i=0;i<list_of_required_num_poses.size();i++)
 				list_of_required_num_poses[i]->mark_outdated();
@@ -623,22 +620,35 @@ void RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::optimize_edges(
 			DETAILED_PROFILING_ENTER("opt.reprojection_residuals")
 			double new_total_proj_error, new_stdv;
 			vector_weights_t new_weights;
-			if ( parameters.srba.use_gamma_kernel && nObs > parameters.srba.min_obs_gamma_kernel )
-			{
-				new_total_proj_error = reprojection_residuals(
-					new_residuals, // Out
-					involved_obs, // In
-					new_weights, // Out
-					new_stdv     // Out
-					);
-				//parameters.options_noise.parameters_t.stdv = stdv;
-			}
-			else
+			// If non-reweighted
+			if(false)
 			{
 				new_total_proj_error = reprojection_residuals(
 					new_residuals, // Out
 					involved_obs // In
 					);
+				new_stdv    = stdv;
+				new_weights = weights;
+			}
+			else
+			{
+				if ( parameters.srba.use_gamma_kernel && nObs > parameters.srba.min_obs_gamma_kernel )
+				{
+					new_total_proj_error = reprojection_residuals(
+						new_residuals, // Out
+						involved_obs, // In
+						new_weights, // Out
+						new_stdv,"histogram_residuals_end.txt"   // Out
+						);
+					//parameters.options_noise.parameters_t.stdv = stdv;
+				}
+				else
+				{
+					new_total_proj_error = reprojection_residuals(
+						new_residuals, // Out
+						involved_obs,"histogram_residuals_end.txt" // In
+						);
+				}
 			}
 			DETAILED_PROFILING_LEAVE("opt.reprojection_residuals")
 

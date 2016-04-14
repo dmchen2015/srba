@@ -57,8 +57,6 @@ RBA_Run_BasePtr RBA_implemented_registry::searchImplementation( RBASLAM_Params &
 	return RBA_Run_BasePtr();
 }
 
-
-
 // ---------------- All the parameters of this app: --------------
 
 // Parse all cmd-line arguments at construction

@@ -451,6 +451,7 @@ namespace srba
 			// -------------------------------------
 			bool   optimize_new_edges_alone; //!< (Default:true) Before running a whole "local area" optimization, try to optimize new edges one by one to have a better starting point.
 			bool   use_gamma_kernel;
+			bool   use_gamma_kernel_stage1;
 			size_t min_obs_gamma_kernel;
 			bool   use_robust_kernel;
 			bool   use_robust_kernel_stage1;
@@ -837,10 +838,24 @@ namespace srba
 			) const;
 
 		inline double reprojection_residuals(
+			vector_residuals_t & residuals, // Out:
+			const std::vector<TObsUsed> & observations, // In:
+			string filename
+			) const;
+
+		inline double reprojection_residuals(
 				vector_residuals_t & residuals, // Out:
 				const std::vector<TObsUsed> & observations, // In:
 				vector_weights_t & weights,     // Out
 				double & stdv                     // Out
+				) ;
+
+		inline double reprojection_residuals(
+				vector_residuals_t & residuals, // Out:
+				const std::vector<TObsUsed> & observations, // In:
+				vector_weights_t & weights,     // Out
+				double & stdv,                  // Out
+				string filename
 				) ;
 
 		/** pseudo-huber cost function */

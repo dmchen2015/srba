@@ -88,6 +88,10 @@ set(srba_all_srcs ${srba_hdrs} ${srba_hdrs_models} ${srba_hdrs_impl} ${srba_hdrs
 add_custom_target(srba DEPENDS ${srba_all_srcs} SOURCES ${srba_all_srcs})
 set_target_properties(srba PROPERTIES FOLDER "SRBA lib")
 
+# DEBUG RUBEN
+FIND_PACKAGE(OpenCV 2.4.5 REQUIRED)
+target_link_libraries(srba ${OpenCV_LIBS})
+
 # Install!
 
 # Apps
