@@ -118,7 +118,7 @@ namespace observations {
 	  */
 	struct StereoCameraLineSegment
 	{
-		static const size_t  OBS_DIMS = 6; //!< Each observation is a pair of pixels and their disparity (spx_l,spy_l,sp_d, epx_l,epy_l,ep_d)
+		static const size_t  OBS_DIMS = 8; //!< Each observation is a pair of pixels and their disparity (spx_l,spy_l,sp_d, epx_l,epy_l,ep_d)
 
 		/** The observation-specific data structure */
 		struct obs_data_t
@@ -128,8 +128,8 @@ namespace observations {
 			/** Converts this observation into a plain array of its parameters */
 			template <class ARRAY>
 			inline void getAsArray(ARRAY &obs) const {
-				obs[0] = start_l_px.x;  obs[1] = start_l_px.y;	obs[2] = start_l_px.x - start_r_px.x;
-				obs[3] = end_l_px.x;    obs[4] = end_l_px.y;	obs[6] = end_l_px.x - end_r_px.x;
+				obs[0] = start_l_px.x;  obs[1] = start_l_px.y;	obs[2] = start_r_px.x;   obs[3] = start_r_px.y;
+				obs[4] = end_l_px.x;    obs[5] = end_l_px.y;	obs[6] = end_l_px.x;     obs[7] = end_r_px.y;
 			}
 		};
 

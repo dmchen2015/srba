@@ -188,9 +188,9 @@ namespace srba {
 			// observed line segments
 			Eigen::Vector3f l_obs_l, l_obs_r, spl, epl, spr, epr;
 			spl << l_obs[0], l_obs[1], 1.;
-			spr << l_obs[0]-l_obs[2], l_obs[1], 1.;
-			epl << l_obs[3], l_obs[4], 1.;
-			epr << l_obs[3]-l_obs[5], l_obs[4], 1.;
+			spr << l_obs[2], l_obs[3], 1.;
+			epl << l_obs[4], l_obs[5], 1.;
+			epr << l_obs[6], l_obs[7], 1.;
 			l_obs_l = spl.cross(epl);
 			l_obs_l = l_obs_l / std::sqrt( l_obs_l(0)*l_obs_l(0)+l_obs_l(1)*l_obs_l(1) );
 			l_obs_r = spr.cross(epr);
@@ -213,9 +213,12 @@ namespace srba {
 						  lc.cy() + lc.fy() * ely/elz,
 						  1.;
 
-			out_obs_err[0] = l_obs_l.dot( pred_obs_s );
-			out_obs_err[1] = l_obs_l.dot( pred_obs_e );
-			out_obs_err[2] = 0.;	// different size of observation and error
+			out_obs_err[0] = pred_obs_s[0] - spl(0);
+			out_obs_err[1] = pred_obs_s[1] - spl(1);
+			out_obs_err[4] = pred_obs_e[0] - epl(0);
+			out_obs_err[5] = pred_obs_e[1] - epl(1);
+
+
 
 			// Project point relative to right-camera:
 			const mrpt::poses::CPose3DQuat R2L = -params.camera_calib.rightCameraPose; // R2L = (-) Left-to-right_camera_pose
@@ -247,9 +250,11 @@ namespace srba {
 			pred_obs_e << rc.cx() + rc.fx() * erx/erz,
 						  rc.cy() + rc.fy() * ery/erz,
 						  1.;
-			out_obs_err[3] = l_obs_r.dot( pred_obs_s );
-			out_obs_err[4] = l_obs_r.dot( pred_obs_e );
-			out_obs_err[5] = 0.;	// different size of observation and error
+
+			out_obs_err[2] = pred_obs_s[0] - spr(0);
+			out_obs_err[3] = pred_obs_s[1] - spr(1);
+			out_obs_err[6] = pred_obs_e[0] - epr(0);
+			out_obs_err[7] = pred_obs_e[1] - epr(1);
 
 			//if( abs(out_obs_err[3]) == 1. || abs(out_obs_err[3]) == 1. )
 				//std::cout << "z_obs = " << z_obs.transpose() << "\t pred_obs = " << pred_obs.transpose() << "\t delta = " << out_obs_err.transpose() << std::endl;
@@ -284,22 +289,32 @@ namespace srba {
 			if ( xji_l[2]<=0. || xji_l[5]<=0. )
 				return false;
 
+			dh_dx = Eigen::Matrix<double,OBS_DIMS,LM_DIMS>::Zero();
+			const double fx = sensor_params.camera_calib.leftCamera.fx();
+			const double fy = sensor_params.camera_calib.leftCamera.fy();
+
 			// Left camera:
 			{
-				const double lxfx  = sensor_params.camera_calib.leftCamera.fx() * l_obs(0);
-				const double lyfy  = sensor_params.camera_calib.leftCamera.fy() * l_obs(1);
-				// start point
+				const double lx = l_obs(0);
+				const double ly = l_obs(1);
+				// start point (d_pl_P)
 				const double pz_inv_s  = 1.0/xji_l[2];
 				const double pz_inv2_s = pz_inv_s*pz_inv_s;
-				dh_dx.coeffRef(0,0)  = lxfx * pz_inv_s;
-				dh_dx.coeffRef(0,1)  = lyfy * pz_inv_s;
-				dh_dx.coeffRef(0,2)  = - (lxfx * xji_l[0] + lyfy * xji_l[1]) * pz_inv2_s ;
-				// end point
+				dh_dx.coeffRef(0,0)  = pz_inv_s * fx * lx * lx;
+				dh_dx.coeffRef(0,1)  = pz_inv_s * lx * ly * fy;
+				dh_dx.coeffRef(0,2)  = -pz_inv2_s * ( lx*lx*fx*xji_l[0] + lx*ly*fy*xji_l[1] );
+				dh_dx.coeffRef(1,0)  = pz_inv_s * lx * ly * fx;
+				dh_dx.coeffRef(1,1)  = pz_inv_s * ly * ly * fy;
+				dh_dx.coeffRef(1,2)  = -pz_inv2_s * ( lx*ly*fx*xji_l[0] + ly*ly*fy*xji_l[1] );
+				// end point (d_ql_Q)
 				const double pz_inv_e  = 1.0/xji_l[5];
 				const double pz_inv2_e = pz_inv_e*pz_inv_e;
-				dh_dx.coeffRef(1,0)  = lxfx * pz_inv_e;
-				dh_dx.coeffRef(1,1)  = lyfy * pz_inv_e;
-				dh_dx.coeffRef(1,2)  = - (lxfx * xji_l[3] + lyfy * xji_l[4]) * pz_inv2_e ;
+				dh_dx.coeffRef(4,3)  = pz_inv_s * fx * lx * lx;
+				dh_dx.coeffRef(4,4)  = pz_inv_s * lx * ly * fy;
+				dh_dx.coeffRef(4,5)  = -pz_inv2_s * ( lx*lx*fx*xji_l[3] + lx*ly*fy*xji_l[4] );
+				dh_dx.coeffRef(5,3)  = pz_inv_s * lx * ly * fx;
+				dh_dx.coeffRef(5,4)  = pz_inv_s * ly * ly * fy;
+				dh_dx.coeffRef(5,5)  = -pz_inv2_s * ( lx*ly*fx*xji_l[3] + ly*ly*fy*xji_l[4] );
 			}
 
 			// Right camera:
@@ -312,20 +327,26 @@ namespace srba {
 				xji_l[3],xji_l[4],xji_l[5],
 				xji_l_right_e[0],xji_l_right_e[1],xji_l_right_e[2]);
 			{
-				const double lxfx  = sensor_params.camera_calib.leftCamera.fx() * l_obs(3);
-				const double lyfy  = sensor_params.camera_calib.leftCamera.fy() * l_obs(4);
-				// start point
+				const double lx = l_obs(3);
+				const double ly = l_obs(4);
+				// start point (d_pr_P)
 				const double pz_inv_s  = 1.0/xji_l_right_s[2];
 				const double pz_inv2_s = pz_inv_s*pz_inv_s;
-				dh_dx.coeffRef(2,0)  = lxfx * pz_inv_s;
-				dh_dx.coeffRef(2,1)  = lyfy * pz_inv_s;
-				dh_dx.coeffRef(2,2)  = - (lxfx * xji_l_right_s[0] + lyfy * xji_l_right_s[1]) * pz_inv2_s ;
-				// end point
+				dh_dx.coeffRef(2,0)  = pz_inv_s * fx * lx * lx;
+				dh_dx.coeffRef(2,1)  = pz_inv_s * lx * ly * fy;
+				dh_dx.coeffRef(2,2)  = -pz_inv2_s * ( lx*lx*fx*xji_l_right_s[0] + lx*ly*fy*xji_l_right_s[1] );
+				dh_dx.coeffRef(3,0)  = pz_inv_s * lx * ly * fx;
+				dh_dx.coeffRef(3,1)  = pz_inv_s * ly * ly * fy;
+				dh_dx.coeffRef(3,2)  = -pz_inv2_s * ( lx*ly*fx*xji_l_right_s[0] + ly*ly*fy*xji_l_right_s[1] );
+				// end point (d_qr_Q)
 				const double pz_inv_e  = 1.0/xji_l_right_e[2];
 				const double pz_inv2_e = pz_inv_e*pz_inv_e;
-				dh_dx.coeffRef(3,0)  = lxfx * pz_inv_e;
-				dh_dx.coeffRef(3,1)  = lyfy * pz_inv_e;
-				dh_dx.coeffRef(3,2)  = - (lxfx * xji_l_right_e[0] + lyfy * xji_l_right_e[1]) * pz_inv2_e ;
+				dh_dx.coeffRef(6,3)  = pz_inv_s * fx * lx * lx;
+				dh_dx.coeffRef(6,4)  = pz_inv_s * lx * ly * fy;
+				dh_dx.coeffRef(6,5)  = -pz_inv2_s * ( lx*lx*fx*xji_l_right_e[0] + lx*ly*fy*xji_l_right_e[1] );
+				dh_dx.coeffRef(7,3)  = pz_inv_s * lx * ly * fx;
+				dh_dx.coeffRef(7,4)  = pz_inv_s * ly * ly * fy;
+				dh_dx.coeffRef(7,5)  = -pz_inv2_s * ( lx*ly*fx*xji_l_right_e[0] + ly*ly*fy*xji_l_right_e[1] );
 			}
 
 			return true;
@@ -360,17 +381,17 @@ namespace srba {
 			const double baseline  = params.camera_calib.rightCameraPose.x();
 			ASSERT_(baseline!=0)
 			// start point
-			const double disp_s = std::max(0.001f, obs.start_l_px.x - obs.start_r_px.x);
-			const double Zs = fxl*baseline/disp_s;
-			out_lm_pos[0] = (obs.start_l_px.x - cxl)*Zs/fxl;
-			out_lm_pos[1] = (obs.start_l_px.y - cyl)*Zs/fyl;
-			out_lm_pos[2] = Zs;
+			const double disparity_s = std::max(0.001f, obs.start_l_px.x - obs.start_r_px.x);
+			const double Z_s = fxl*baseline/disparity_s;
+			out_lm_pos[0] = (obs.start_l_px.x - cxl)*Z_s/fxl;
+			out_lm_pos[1] = (obs.start_l_px.y - cyl)*Z_s/fyl;
+			out_lm_pos[2] = Z_s;
 			// end point
-			const double disp_e = std::max(0.001f, obs.end_l_px.x - obs.end_r_px.x);
-			const double Ze = fxl*baseline/disp_e;
-			out_lm_pos[3] = (obs.end_l_px.x - cxl)*Ze/fxl;
-			out_lm_pos[4] = (obs.end_l_px.y - cyl)*Ze/fyl;
-			out_lm_pos[5] = Ze;
+			const double disparity_e = std::max(0.001f, obs.end_l_px.x - obs.end_r_px.x);
+			const double Z_e = fxl*baseline/disparity_e;
+			out_lm_pos[3] = (obs.end_l_px.x - cxl)*Z_e/fxl;
+			out_lm_pos[4] = (obs.end_l_px.y - cyl)*Z_e/fyl;
+			out_lm_pos[5] = Z_e;
 		}
 
 	};  // end of struct sensor_model<landmarks::Euclidean3D,observations::StereoCamera>
@@ -395,7 +416,6 @@ namespace srba {
 		typedef Eigen::Matrix<double,OBS_DIMS,LM_DIMS>  TJacobian_dh_dx;     //!< A Jacobian of the correct size for each dh_dx
 		typedef landmark_traits<LANDMARK_T>::array_landmark_t    array_landmark_t;             //!< a 2D or 3D point
 		typedef OBS_T::TObservationParams               TObservationParams;
-
 
 		/** Executes the (negative) observation-error model: "-( h(lm_pos,pose) - z_obs)" 
 		  * \param[out] out_obs_err The output of the predicted sensor value
