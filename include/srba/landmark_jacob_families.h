@@ -16,7 +16,7 @@ namespace srba {
 	enum landmark_jacob_family_t
 	{
 		jacob_point_landmark,   //!< Landmarks are points
-		jacob_line_landmarkm,	//!< Landmarks are line segments
+		jacob_line_landmark,	//!< Landmarks are line segments
 		jacob_relpose_landmark  //!< "fake landmarks" used for relative pose observations
 	};
 

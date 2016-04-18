@@ -25,7 +25,7 @@ namespace landmarks {
 	struct Euclidean3DLineSegments
 	{
 		static const size_t  LM_DIMS = 6; //!< The number of parameters in each LM parameterization relative to its base KF: (sx,sy,sz:ex,ey,ez)
-		static const landmark_jacob_family_t  jacob_family = jacob_line_landmarkm;  //!< Specify the kind of Jacobian to be used for compute_jacobian_dAepsDx_deps<>
+		static const landmark_jacob_family_t  jacob_family = jacob_line_landmark;  //!< Specify the kind of Jacobian to be used for compute_jacobian_dAepsDx_deps<>
 		//static const size_t  LM_EUCLIDEAN_DIMS = 3; //!< Either 2 or 3, depending on the real minimum number of coordinates needed to parameterize the landmark.
 		typedef srba::landmark_rendering_as_line render_mode_t;
 
