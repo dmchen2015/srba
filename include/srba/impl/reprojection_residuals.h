@@ -586,13 +586,13 @@ double RbaEngine<KF2KF_POSE_TYPE,LM_TYPE,OBS_TYPE,RBA_OPTIONS>::reprojection_res
 			// DEBUG
 			if (false)
 			{
-				if( isinf(weight(0)) || isnan(weight(0)) || weight(0) < 0.f )  weight(0) = 1.f;
-				if( isinf(weight(1)) || isnan(weight(1)) || weight(1) < 0.f )  weight(1) = 1.f;
+                if( std::isinf(weight(0)) || std::isnan(weight(0)) || weight(0) < 0.f )  weight(0) = 1.f;
+                if( std::isinf(weight(1)) || std::isnan(weight(1)) || weight(1) < 0.f )  weight(1) = 1.f;
 			}
 			else
 			{
-				if( isinf(weight(0)) || isnan(weight(0)) )  weight(0) = 0.f;
-				if( isinf(weight(1)) || isnan(weight(1)) )  weight(1) = 0.f;
+                if( std::isinf(weight(0)) || std::isnan(weight(0)) )  weight(0) = 0.f;
+                if( std::isinf(weight(1)) || std::isnan(weight(1)) )  weight(1) = 0.f;
 			}
 
 			//f1 << weight(0) << std::endl << weight(1) << std::endl;

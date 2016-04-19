@@ -148,11 +148,11 @@ namespace observations {
 		static bool find_relative_pose(
 			const mrpt::aligned_containers<StereoCameraLineSegment::obs_data_t>::vector_t & new_kf_obs,
 			const mrpt::aligned_containers<StereoCameraLineSegment::obs_data_t>::vector_t & old_kf_obs,
-			const StereoCamera::TObservationParams &params,
+			const StereoCameraLineSegment::TObservationParams &params,
 			POSE &pose_new_kf_wrt_old_kf
 			)
 		{
-			ASSERT_(new_kf_obs.size()==old_kf_obs.size())
+			/*ASSERT_(new_kf_obs.size()==old_kf_obs.size())
 			const size_t N=new_kf_obs.size();
 			// project stereo line segments to 3D and use them to find out the relative pose:
 			const double cx = params.camera_calib.leftCamera.cx(), cy = params.camera_calib.leftCamera.cy(), baseline = params.camera_calib.rightCameraPose.x(), f = params.camera_calib.leftCamera.fx();
@@ -173,7 +173,6 @@ namespace observations {
 					( old_kf_obs[i].end_l_px.y - cy )*baseline/end_disp_old,
 					f*baseline/end_disp_old );
 				const mrpt::math::TSegment3D ls_old( ls_old_s, ls_old_e );
-
 				// Line Segment 2:
 				const double start_disp_new = new_kf_obs[i].start_l_px.x - new_kf_obs[i].start_r_px.x;
 				const double end_disp_new   = new_kf_obs[i].end_l_px.x - new_kf_obs[i].end_r_px.x;
@@ -187,28 +186,9 @@ namespace observations {
 					( new_kf_obs[i].end_l_px.y - cy )*baseline/end_disp_new,
 					f*baseline/end_disp_new );
 				const mrpt::math::TSegment3D ls_new( ls_new_s, ls_new_e );
-
 				// TODO
-
-				//matches.push_back( mrpt::utils::TMatchingPair(i,i, pt_old.x,pt_old.y,pt_old.z, pt_new.x,pt_new.y,pt_new.z ) );
-			}
-			// Least-square optimal transformation:
-			/*if (POSE::rotation_dimensions==2)
-			{ // SE(2)
-				mrpt::math::TPose2D found_pose;
-				if (!mrpt::tfest::se2_l2(matches,found_pose))
-					return false;
-				pose_new_kf_wrt_old_kf = POSE( mrpt::poses::CPose2D(found_pose));
-			}
-			else
-			{  // SE(3)
-				mrpt::poses::CPose3DQuat found_pose;
-				double found_scale;
-				if (!mrpt::tfest::se3_l2(matches,found_pose,found_scale))
-					return false;
-				pose_new_kf_wrt_old_kf = POSE(found_pose);
 			}*/
-			return true;
+			return false;
 		}
 	};
 
